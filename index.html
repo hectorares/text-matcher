@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match DID Finder</title>
+</head>
+<body>
+    <label for="entriesFileInput">Select entries file (.txt only):</label>
+    <input type="file" id="entriesFileInput" accept=".txt">
+    <br>
+    <label for="didsFileInput">Select DIDs file (.txt only):</label>
+    <input type="file" id="didsFileInput" accept=".txt">
+    <br>
+    <button id="matchButton">Match</button>
+    <div id="loadingLabel" style="display: none;">Loading...</div>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('matchButton').addEventListener('click', function() {
+            const entriesFile = document.getElementById('entriesFileInput').files[0];
+            const didsFile = document.getElementById('didsFileInput').files[0];
+            if (!entriesFile || !didsFile) {
+                alert('Please select both files');
+                return;
+            }
+
+            // Show loading label
+            const loadingLabel = document.getElementById('loadingLabel');
+            loadingLabel.style.display = 'block';
+
+            const entriesReader = new FileReader();
+            entriesReader.onload = function(event) {
+                const entriesData = event.target.result.split('entry').filter(Boolean);
+                const entries = [];
+
+                entriesData.forEach((entryData, index) => {
+                    const lines = entryData.trim().split('\n').map(line => line.trim());
+                    const currentEntry = {};
+                    lines.forEach(line => {
+                        const [key, ...rest] = line.split(' ');
+                        const value = rest.join(' ').trim();
+                        currentEntry[key] = value;
+                    });
+                    entries.push(currentEntry);
+                });
+
+                const entriesLines = event.target.result.split('\n').map(line => line.trim());
+
+                const didsReader = new FileReader();
+                didsReader.onload = function(event) {
+                    const didsData = event.target.result.split('\n').map(line => line.trim());
+                    const resultElement = document.getElementById('result');
+                    resultElement.innerHTML = '';
+
+                    const foundDIDs = [];
+                    didsData.forEach(did => {
+                        entries.forEach((entry, index) => {
+                            if (Object.values(entry).some(value => value.includes(did))) {
+                                // Find the line number in the entries file where the DID is found
+                                const lineNumber = entriesLines.findIndex(line => line.includes(did)) + 1;
+                                foundDIDs.push({ did, line: lineNumber });
+                            }
+                        });
+                    });
+
+                    // Hide loading label after processing is done
+                    loadingLabel.style.display = 'none';
+
+                    const listElement = document.createElement('ul');
+                    if (foundDIDs.length === 0) {
+                        const listItem = document.createElement('li');
+                        listItem.textContent = 'No results found';
+                        listElement.appendChild(listItem);
+                    } else {
+                        foundDIDs.forEach(foundDID => {
+                            const listItem = document.createElement('li');
+                            listItem.textContent = `DID ${foundDID.did} found on line ${foundDID.line}`;
+                            listElement.appendChild(listItem);
+                        });
+                    }
+                    resultElement.appendChild(listElement);
+                };
+                didsReader.readAsText(didsFile);
+            };
+            entriesReader.readAsText(entriesFile);
+        });
+    </script>
+</body>
+</html>
